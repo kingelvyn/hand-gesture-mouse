@@ -1,0 +1,6 @@
+opencv-python
+pyautogui
+numpy
+matplotlib
+tensorflow  # or torch, depending on your choice
+jupyter

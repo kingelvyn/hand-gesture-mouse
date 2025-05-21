@@ -68,9 +68,3 @@ hand-gesture-mouse-control/
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-
----
-
-## License
-
-This project is for educational purposes. Add your license information here.

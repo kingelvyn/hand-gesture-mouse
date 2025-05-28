@@ -49,5 +49,26 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# Checkpoints
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.json
+
+# Visualizations
+visualizations/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.avi
+*.mov
+*.pdf
+*.svg
+*.html
+!visualizations/.gitkeep
+
 # Keep requirements.txt
 !requirements.txt 

@@ -6,11 +6,11 @@ A project to control your computer mouse using hand gestures detected via a webc
 
 ## Project Phases & TODO List
 
-### Phase 1: Setup & Data Collection
-- [ ] Set up Python virtual environment
-- [ ] Install dependencies (OpenCV, PyAutoGUI, TensorFlow/PyTorch, etc.)
-- [ ] Create scripts to capture and label hand images/videos
-- [ ] Collect and annotate dataset for hand landmarks
+### Phase 1: Setup & Data Collection ✅
+- [x] Set up Python virtual environment
+- [x] Install dependencies (OpenCV, PyAutoGUI, TensorFlow/PyTorch, etc.)
+- [x] Create scripts to capture and label hand images/videos
+- [x] Collect and annotate dataset for hand landmarks
 
 ### Phase 2: Model Development
 - [ ] Preprocess collected data (resize, normalize, augment, etc.)
@@ -31,10 +31,10 @@ A project to control your computer mouse using hand gestures detected via a webc
 - [ ] Document code and usage in README.md
 - [ ] Test on both Mac and Windows
 
-### Phase 6: Version Control & Collaboration
-- [ ] Initialize git repository
-- [ ] Create .gitignore (ignore data, models, etc.)
-- [ ] Push to GitHub
+### Phase 6: Version Control & Collaboration ✅
+- [x] Initialize git repository
+- [x] Create .gitignore (ignore data, models, etc.)
+- [x] Push to GitHub
 
 ---
 

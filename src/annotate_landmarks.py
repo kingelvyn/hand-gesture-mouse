@@ -3,6 +3,7 @@ import os
 import json
 import numpy as np
 from pathlib import Path
+from tqdm import tqdm
 
 class HandLandmarkAnnotator:
     def __init__(self, data_dir='data/raw', output_dir='data/processed'):
@@ -16,6 +17,14 @@ class HandLandmarkAnnotator:
         self.lower_skin = np.array([0, 20, 70], dtype=np.uint8)
         self.upper_skin = np.array([20, 255, 255], dtype=np.uint8)
         
+        # Load annotations
+        self.annotations_file = os.path.join(output_dir, 'hand_features.json')
+        if os.path.exists(self.annotations_file):
+            with open(self.annotations_file, 'r') as f:
+                self.annotations = json.load(f)
+        else:
+            self.annotations = {}
+    
     def preprocess_image(self, image):
         """Preprocess image for better hand detection."""
         # Resize image for faster processing
@@ -29,14 +38,11 @@ class HandLandmarkAnnotator:
         blurred = cv2.GaussianBlur(image, (5, 5), 0)
         
         return blurred, image.shape[:2]  # Return both processed image and original size
-        
+    
     def detect_hand(self, image):
-        """Detect hand in the image using improved color-based segmentation."""
-        # Preprocess image
-        processed, original_size = self.preprocess_image(image)
-        
+        """Detect hand in the image using color-based segmentation."""
         # Convert to HSV
-        hsv = cv2.cvtColor(processed, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         
         # Create skin mask
         mask = cv2.inRange(hsv, self.lower_skin, self.upper_skin)
@@ -51,7 +57,7 @@ class HandLandmarkAnnotator:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if not contours:
-            return None, None, mask, processed
+            return None, None
         
         # Get the largest contour (should be the hand)
         largest_contour = max(contours, key=cv2.contourArea)
@@ -62,127 +68,124 @@ class HandLandmarkAnnotator:
         # Filter out small detections
         min_size = 50
         if w < min_size or h < min_size:
-            return None, None, mask, processed
-            
+            return None, None
+        
         # Ensure the contour is large enough
         if cv2.contourArea(largest_contour) < 1000:
-            return None, None, mask, processed
-            
-        return (x, y, w, h), largest_contour, mask, processed
+            return None, None
         
-    def extract_hand_features(self, image, hand_rect, contour):
-        """Extract improved hand features from the detected region."""
+        return (x, y, w, h), largest_contour
+    
+    def extract_features(self, image, hand_rect, contour):
+        """Extract hand features from the detected region."""
         x, y, w, h = hand_rect
         
         # Get convex hull and defects
         hull = cv2.convexHull(contour, returnPoints=False)
         defects = cv2.convexityDefects(contour, hull)
         
+        if defects is None:
+            return None
+        
         # Extract key points
         key_points = []
-        if defects is not None:
-            for i in range(defects.shape[0]):
-                s, e, f, d = defects[i, 0]
-                start = tuple(contour[s][0])
-                end = tuple(contour[e][0])
-                far = tuple(contour[f][0])
-                
-                # Filter defects based on distance
-                if d > 10000:  # Adjust this threshold as needed
-                    # Convert to relative coordinates
-                    key_points.append({
-                        'x': far[0] / image.shape[1],
-                        'y': far[1] / image.shape[0],
-                        'depth': d / 256.0  # Normalize depth
-                    })
+        for i in range(defects.shape[0]):
+            s, e, f, d = defects[i, 0]
+            start = tuple(contour[s][0])
+            end = tuple(contour[e][0])
+            far = tuple(contour[f][0])
+            
+            # Filter defects based on distance
+            if d > 10000:  # Adjust this threshold as needed
+                # Convert to relative coordinates
+                key_points.append({
+                    'x': far[0] / image.shape[1],
+                    'y': far[1] / image.shape[0],
+                    'depth': d / 256.0  # Normalize depth
+                })
         
         return key_points
-        
+    
     def process_image(self, image_path):
-        """Process a single image and detect hand features."""
+        """Process a single image and extract hand features."""
         # Read image
         image = cv2.imread(image_path)
         if image is None:
             print(f"Failed to read image: {image_path}")
             return None
-            
-        # Detect hand
-        hand_rect, contour, mask, processed = self.detect_hand(image)
         
+        # Preprocess image
+        processed_image, original_size = self.preprocess_image(image)
+        
+        # Detect hand
+        hand_rect, contour = self.detect_hand(processed_image)
         if hand_rect is None:
             print(f"No hand detected in: {image_path}")
             return None
-            
+        
         # Extract features
-        key_points = self.extract_hand_features(processed, hand_rect, contour)
-        
-        if not key_points:
-            print(f"Could not extract features from: {image_path}")
+        key_points = self.extract_features(processed_image, hand_rect, contour)
+        if key_points is None:
+            print(f"Failed to extract features from: {image_path}")
             return None
-            
-        # Create visualization
-        annotated_image = processed.copy()
-        x, y, w, h = hand_rect
         
-        # Draw bounding box
-        cv2.rectangle(annotated_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        
-        # Draw contour
-        cv2.drawContours(annotated_image, [contour], -1, (0, 255, 0), 2)
-        
-        # Draw key points
-        for point in key_points:
-            px = int(point['x'] * processed.shape[1])
-            py = int(point['y'] * processed.shape[0])
-            cv2.circle(annotated_image, (px, py), 5, (0, 0, 255), -1)
-            
-        # Create debug visualization
-        mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        debug_image = np.hstack([processed, mask_bgr])
-        
-        return annotated_image, debug_image, key_points
-        
-    def process_all_images(self):
+        return key_points
+    
+    def annotate_all(self):
         """Process all images in the data directory."""
-        # Get all image files
+        print("Starting annotation process...")
+        
+        # Get list of all images
         image_files = [f for f in os.listdir(self.data_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
+        total_images = len(image_files)
         
-        # Create a dictionary to store all annotations
-        annotations = {}
+        print(f"Found {total_images} images to process")
         
-        for image_file in image_files:
-            print(f"Processing {image_file}...")
+        # Process each image with progress bar
+        for image_file in tqdm(image_files, desc="Annotating images"):
             image_path = os.path.join(self.data_dir, image_file)
             
-            # Process image
-            result = self.process_image(image_path)
-            if result is None:
+            # Skip if already annotated
+            if image_file in self.annotations and self.annotations[image_file].get('key_points'):
                 continue
+            
+            # Process image
+            key_points = self.process_image(image_path)
+            if key_points is not None:
+                # Update annotations
+                if image_file not in self.annotations:
+                    self.annotations[image_file] = {
+                        'gesture': image_file.split('_')[0],  # Get gesture from filename
+                        'timestamp': self.annotations.get(image_file, {}).get('timestamp', ''),
+                        'key_points': key_points
+                    }
+                else:
+                    self.annotations[image_file]['key_points'] = key_points
                 
-            annotated_image, debug_image, key_points = result
-            
-            # Save annotated image
-            output_image_path = os.path.join(self.output_dir, f"annotated_{image_file}")
-            cv2.imwrite(output_image_path, annotated_image)
-            
-            # Save debug image
-            debug_image_path = os.path.join(self.output_dir, f"debug_{image_file}")
-            cv2.imwrite(debug_image_path, debug_image)
-            
-            # Store key points
-            annotations[image_file] = {
-                'key_points': key_points,
-                'gesture': image_file.split('_')[0]  # Extract gesture label from filename
-            }
-            
-        # Save annotations to JSON
-        with open(os.path.join(self.output_dir, 'hand_features.json'), 'w') as f:
-            json.dump(annotations, f, indent=2)
-            
-        print(f"\nProcessed {len(annotations)} images")
-        print(f"Annotations saved to: {os.path.join(self.output_dir, 'hand_features.json')}")
-        print(f"Annotated images saved to: {self.output_dir}")
+                # Save annotations periodically
+                if len(self.annotations) % 10 == 0:
+                    self.save_annotations()
+        
+        # Save final annotations
+        self.save_annotations()
+        
+        # Print summary
+        print("\nAnnotation Summary:")
+        gestures = {}
+        for data in self.annotations.values():
+            gesture = data['gesture']
+            gestures[gesture] = gestures.get(gesture, 0) + 1
+        
+        for gesture, count in gestures.items():
+            print(f"{gesture}: {count} annotated samples")
+        
+        print(f"\nTotal annotated samples: {len(self.annotations)}")
+    
+    def save_annotations(self):
+        """Save annotations to file."""
+        with open(self.annotations_file, 'w') as f:
+            json.dump(self.annotations, f, indent=4)
 
 if __name__ == "__main__":
     annotator = HandLandmarkAnnotator()
-    annotator.process_all_images() 
+    annotator.annotate_all() 

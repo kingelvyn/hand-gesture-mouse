@@ -1,32 +1,51 @@
-# Byte-compiled / optimized / DLL files
+# Virtual Environment
+virtual-mouse/
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environment
-venv/
-.env/
-ENV/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints
-
-# Data and models
-/data/
-/models/
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Local configuration
+.env
+.env.local
 
 # Logs
 *.log
 
-# Environment variables
-.env
+# Data and models (if needed)
+# data/
+# models/
 
-# VSCode settings
-.vscode/ 
+# Keep requirements.txt
+!requirements.txt 

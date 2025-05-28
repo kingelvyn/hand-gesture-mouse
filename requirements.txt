@@ -1,6 +1,7 @@
 opencv-python
 pyautogui
+torch
+torchvision
 numpy
 matplotlib
-tensorflow  # or torch, depending on your choice
-jupyter
+scikit-learn
